@@ -500,7 +500,8 @@ export default function Home() {
                     <path d="M16 18v-8"></path>
                     <path d="M20 18v-6"></path>
                   </svg>
-                  <span className="text-sm font-medium">スペクトラム</span>
+                  <span className="hidden sm:inline">スペクトラム</span>
+                  <span className="inline sm:hidden">波形</span>
                 </Toggle>
                 <Toggle
                   pressed={visualizationMode === "spectrogram"}
@@ -527,7 +528,8 @@ export default function Home() {
                     <path d="M17 3v6"></path>
                     <path d="M17 15v6"></path>
                   </svg>
-                  <span className="text-sm font-medium">スペクトログラム</span>
+                  <span className="hidden sm:inline">スペクトログラム</span>
+                  <span className="inline sm:hidden">時間</span>
                 </Toggle>
               </div>
             </CardContent>
@@ -576,30 +578,8 @@ export default function Home() {
                     variant="outline"
                     className="border-2 h-16 px-4 flex items-center justify-center gap-3 data-[state=on]:bg-primary/10 data-[state=on]:border-primary/50 transition-all"
                   >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="20"
-                      height="20"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      className="mr-2"
-                    >
-                      <path d="M2 12h2"></path>
-                      <path d="M6 12h2"></path>
-                      <path d="M10 12h2"></path>
-                      <path d="M14 12h2"></path>
-                      <path d="M18 12h4"></path>
-                      <path d="M4 18V6"></path>
-                      <path d="M8 18V6"></path>
-                      <path d="M12 18v-4"></path>
-                      <path d="M16 18v-8"></path>
-                      <path d="M20 18v-6"></path>
-                    </svg>
-                    <span className="text-sm font-medium">スペクトラム</span>
+                    <span className="hidden sm:inline">スペクトラム</span>
+                    <span className="inline sm:hidden">波形</span>
                   </Toggle>
                   <Toggle
                     pressed={visualizationMode === "spectrogram"}
@@ -607,28 +587,8 @@ export default function Home() {
                     variant="outline"
                     className="border-2 h-16 px-4 flex items-center justify-center gap-3 data-[state=on]:bg-primary/10 data-[state=on]:border-primary/50 transition-all"
                   >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="20"
-                      height="20"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      className="mr-2"
-                    >
-                      <path d="M3 3v18h18"></path>
-                      <path d="m7 18-4 4"></path>
-                      <path d="M7 3v12"></path>
-                      <path d="M12 3v18"></path>
-                      <path d="M17 3v6"></path>
-                      <path d="M17 15v6"></path>
-                    </svg>
-                    <span className="text-sm font-medium">
-                      スペクトログラム
-                    </span>
+                    <span className="hidden sm:inline">スペクトログラム</span>
+                    <span className="inline sm:hidden">時間</span>
                   </Toggle>
                 </div>
               </CardContent>
