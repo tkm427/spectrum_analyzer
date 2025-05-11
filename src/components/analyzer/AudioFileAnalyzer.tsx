@@ -7,11 +7,9 @@ import {
   CardHeader,
   CardTitle,
   CardDescription,
-  CardFooter,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { getAudioAnalyzer } from "@/lib/audio";
 
 // オーディオファイル分析のためのカスタムクラス
 class AudioFileProcessor {

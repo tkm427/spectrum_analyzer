@@ -49,10 +49,7 @@ interface SpectrumAnalyzerProps {
 /**
  * 周波数スペクトルアナライザーコンポーネント
  */
-export function SpectrumAnalyzer({
-  mode = "spectrum",
-  bands = 64,
-}: SpectrumAnalyzerProps) {
+export function SpectrumAnalyzer({ mode = "spectrum" }: SpectrumAnalyzerProps) {
   // 最大周波数を固定 (20kHz)
   const maxFreq = 20000;
 
@@ -137,7 +134,10 @@ export function SpectrumAnalyzer({
           }
         } else {
           // フォールバック: 最も近い有効なインデックスを探す
-          let closestIndex = Math.min(Math.max(0, index), numRawDataBands - 1);
+          const closestIndex = Math.min(
+            Math.max(0, index),
+            numRawDataBands - 1
+          );
           newData[i] = rawData[closestIndex] || 0;
         }
       }

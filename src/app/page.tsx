@@ -10,7 +10,7 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
-import { Switch } from "@/components/ui/switch";
+
 import { Toggle } from "@/components/ui/toggle";
 import { getAudioAnalyzer } from "@/lib/audio";
 import {
@@ -44,10 +44,10 @@ export default function Home() {
   const [isDarkMode, setIsDarkMode] = useState(false);
 
   // スペクトルデータ
-  const [spectrumData, setSpectrumData] = useState<number[]>(Array(64).fill(0));
+  const [, setSpectrumData] = useState<number[]>(Array(64).fill(0));
 
   // オーディオファイルデータが準備完了かどうか
-  const [isFileDataReady, setIsFileDataReady] = useState(false);
+  const [, setIsFileDataReady] = useState(false);
 
   // アニメーションフレームのID
   const requestRef = useRef<number | null>(null);

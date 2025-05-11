@@ -286,7 +286,6 @@ export class AudioAnalyzer {
     }
 
     const sampleRate = this.audioContext.sampleRate;
-    const fftSize = this.fftSize;
     const binCount = freqData.length;
 
     // 表示範囲の設定
