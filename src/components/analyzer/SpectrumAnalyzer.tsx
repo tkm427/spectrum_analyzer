@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useEffect, useState } from "react";
+import React, { useRef, useEffect, useState, useCallback } from "react";
 import { useTheme } from "next-themes";
 import {
   Chart as ChartJS,
@@ -90,7 +90,7 @@ export function SpectrumAnalyzer({ mode = "spectrum" }: SpectrumAnalyzerProps) {
   const { theme } = useTheme();
 
   // グラフ描画のアニメーション関数
-  const animate = () => {
+  const animate = useCallback(() => {
     const analyzer = getAudioAnalyzer();
     const status = analyzer.getStatus();
 
@@ -161,7 +161,7 @@ export function SpectrumAnalyzer({ mode = "spectrum" }: SpectrumAnalyzerProps) {
 
     // 次のアニメーションフレームをリクエスト
     requestRef.current = requestAnimationFrame(animate);
-  };
+  }, [mode, frequencyPoints, setSpectrumData, setSpectrogramHistory, setPitch]); // animate関数の依存関係
 
   // コンポーネントがマウントされた時にアニメーションを開始
   useEffect(() => {
@@ -173,7 +173,7 @@ export function SpectrumAnalyzer({ mode = "spectrum" }: SpectrumAnalyzerProps) {
         cancelAnimationFrame(requestRef.current);
       }
     };
-  }, [mode]); // modeが変更された時にエフェクトを再実行
+  }, [animate]); // animateが変更された時にエフェクトを再実行
 
   // スペクトラム表示用のデータ - 線グラフに変更
   const spectrumChartData = {
@@ -292,7 +292,7 @@ export function SpectrumAnalyzer({ mode = "spectrum" }: SpectrumAnalyzerProps) {
 
   // スペクトログラム表示用のデータ
   const spectrogramData = {
-    labels: Array.from({ length: spectrogramHistory.length }).map((_, i) => ""),
+    labels: Array(spectrogramHistory.length).fill(""),
     datasets: frequencyLabels.map((label, i) => {
       // モノトーン用のグラデーションを作成
       const intensity = 0.2 + (0.8 * i) / frequencyPoints.length;

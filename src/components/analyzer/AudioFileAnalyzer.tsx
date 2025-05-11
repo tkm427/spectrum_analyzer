@@ -23,8 +23,20 @@ class AudioFileProcessor {
   private duration = 0;
 
   constructor() {
-    this.audioContext = new (window.AudioContext ||
-      (window as any).webkitAudioContext)();
+    if (typeof window !== "undefined") {
+      const AudioContextClass =
+        window.AudioContext ||
+        (window as Window & { webkitAudioContext?: typeof AudioContext })
+          .webkitAudioContext;
+      if (AudioContextClass) {
+        this.audioContext = new AudioContextClass();
+      } else {
+        console.error(
+          "AudioContext is not supported in this browser. AudioFileProcessor will not work."
+        );
+        // this.audioContext は (AudioContext | null) 型なので、null のままで問題ありません
+      }
+    }
   }
 
   async loadAudioFile(file: File): Promise<boolean> {
@@ -86,8 +98,9 @@ class AudioFileProcessor {
     if (this.source) {
       try {
         this.source.stop();
-      } catch (e) {
+      } catch (_e) {
         // すでに停止している場合のエラーは無視
+        console.error("Error stopping audio source:", _e);
       }
       this.source.disconnect();
       this.source = null;

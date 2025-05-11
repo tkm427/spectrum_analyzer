@@ -33,8 +33,12 @@ export class AudioAnalyzer {
       });
 
       // AudioContextの作成
-      this.audioContext = new (window.AudioContext ||
-        (window as any).webkitAudioContext)();
+      const AudioContextClass = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!AudioContextClass) {
+        console.error("AudioContext is not supported in this browser.");
+        return false; // 初期化失敗
+      }
+      this.audioContext = new AudioContextClass();
 
       // オーディオソースの作成
       this.source = this.audioContext.createMediaStreamSource(this.mediaStream);
