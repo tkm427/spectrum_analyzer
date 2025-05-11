@@ -98,7 +98,7 @@ export function SpectrumAnalyzer({
     const status = analyzer.getStatus();
 
     if (status.isInitialized && status.isActive) {
-      const numRawDataBands = 3000; // getNormalizedSpectrum から取得するバンド数
+      const numRawDataBands = 20000; // getNormalizedSpectrum から取得するバンド数
       const rawData = analyzer.getNormalizedSpectrum(numRawDataBands);
 
       // 新しいアプローチ: 正確な周波数マッピング

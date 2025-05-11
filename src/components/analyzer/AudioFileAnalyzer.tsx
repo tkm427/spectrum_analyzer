@@ -306,7 +306,7 @@ export function AudioFileAnalyzer({ onDataReady }: AudioFileAnalyzerProps) {
   }, []);
 
   return (
-    <Card className="mb-4">
+    <Card className="mb-4 w-full">
       <CardHeader className="py-3">
         <CardTitle className="text-base sm:text-lg flex items-center gap-2">
           <svg

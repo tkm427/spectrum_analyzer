@@ -395,7 +395,9 @@ export default function Home() {
                   disabled={!isInitialized}
                   variant={isAnalyzing ? "destructive" : "default"}
                   className={`${
-                    !isAnalyzing ? "btn-secondary" : "text-white font-medium"
+                    !isAnalyzing
+                      ? "btn-secondary text-foreground"
+                      : "text-foreground font-medium"
                   } h-14 text-sm sm:text-base`}
                 >
                   {isAnalyzing ? (
@@ -636,7 +638,7 @@ export default function Home() {
       {analysisSource === "microphone" ? (
         <SpectrumAnalyzer mode={visualizationMode} bands={64} />
       ) : (
-        <Card className="border border-muted">
+        <Card className="border border-muted mt-8">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
               <svg
@@ -661,7 +663,7 @@ export default function Home() {
               アップロードしたオーディオファイルの周波数解析結果
             </CardDescription>
           </CardHeader>
-          <CardContent className="pt-0">
+          <CardContent className="pt-0 overflow-scroll">
             <div className="h-[400px]">
               <SpectrumAnalyzer mode={visualizationMode} bands={64} />
             </div>
