@@ -393,12 +393,15 @@ export default function Home() {
                 <Button
                   onClick={toggleAnalysis}
                   disabled={!isInitialized}
-                  variant={isAnalyzing ? "destructive" : "default"}
-                  className={`${
-                    !isAnalyzing
-                      ? "btn-secondary text-foreground"
-                      : "text-foreground font-medium"
-                  } h-14 text-sm sm:text-base`}
+                  className={`h-14 text-sm sm:text-base ${
+                    isAnalyzing
+                      ? theme === "light"
+                        ? "bg-white text-black border border-black hover:bg-gray-100 font-medium"
+                        : "bg-black text-white border border-white hover:bg-gray-800 font-medium"
+                      : theme === "light"
+                      ? "bg-black text-white hover:bg-gray-800"
+                      : "bg-white text-black hover:bg-gray-200"
+                  }`}
                 >
                   {isAnalyzing ? (
                     <svg
