@@ -196,6 +196,83 @@ export class AudioAnalyzer {
     const fundamentalFreq = sampleRate / maxLag;
     return fundamentalFreq;
   }
+  /**
+   * 指定された周波数ポイントに対応するスペクトルデータを取得する
+   * @param frequencyPoints 取得したい周波数ポイントの配列
+   * @returns 各周波数ポイントに対応するスペクトルデータの配列
+   */
+  getCustomFrequencyData(frequencyPoints: number[]): number[] {
+    const freqData = this.getFrequencyData();
+    if (!freqData || !this.audioContext || freqData.length === 0) {
+      return Array(frequencyPoints.length).fill(0);
+    }
+
+    const sampleRate = this.audioContext.sampleRate;
+    const nyquist = sampleRate / 2; // ナイキスト周波数
+    const binCount = freqData.length;
+    const result = Array(frequencyPoints.length).fill(0);
+
+    // 1つのFFTビンあたりの周波数幅
+    const freqPerBin = nyquist / binCount;
+
+    for (let i = 0; i < frequencyPoints.length; i++) {
+      const targetFreq = frequencyPoints[i];
+
+      // 周波数に対応するビンのインデックスを計算
+      const exactBinIndex = targetFreq / freqPerBin;
+      const lowerBinIndex = Math.floor(exactBinIndex);
+      const upperBinIndex = Math.ceil(exactBinIndex);
+
+      // バインの有効範囲をチェック
+      if (lowerBinIndex >= 0 && upperBinIndex < binCount) {
+        // 線形補間を使用して、より正確な値を計算
+        const fraction = exactBinIndex - lowerBinIndex;
+        const lowerValue = freqData[lowerBinIndex];
+        const upperValue = freqData[upperBinIndex];
+
+        // 線形補間
+        result[i] = lowerValue * (1 - fraction) + upperValue * fraction;
+
+        // 低周波数域での精度向上：周辺データの加重平均
+        if (targetFreq < 1000) {
+          // 隣接するビンも考慮して加重平均を計算
+          let sum = result[i];
+          let weight = 1;
+
+          // 低周波数域では、より広い範囲のビンを考慮
+          const range = Math.ceil(5 * (1 - targetFreq / 1000)); // 低周波ほど広い範囲を使用
+
+          for (let j = 1; j <= range; j++) {
+            const lIndex = Math.max(0, lowerBinIndex - j);
+            const uIndex = Math.min(binCount - 1, upperBinIndex + j);
+
+            // 距離に応じた重み付け（近いほど重み大）
+            const w = (range - j + 1) / (range + 1);
+
+            sum += freqData[lIndex] * w + freqData[uIndex] * w;
+            weight += w * 2;
+          }
+
+          // 加重平均を計算
+          result[i] = sum / weight;
+
+          // 特に100Hz未満の超低周波数域ではさらに増幅
+          if (targetFreq < 100) {
+            const boost = 1.2 + (1 - targetFreq / 100) * 0.8; // 20Hzでは2.0倍、100Hzでは1.2倍
+            result[i] = Math.min(255, result[i] * boost); // 255を超えないようにクリップ
+          }
+        }
+      } else if (lowerBinIndex < 0) {
+        // 下限を下回る場合は最初のビンの値を使用
+        result[i] = freqData[0];
+      } else {
+        // 上限を超える場合は最後のビンの値を使用
+        result[i] = freqData[binCount - 1];
+      }
+    }
+
+    return result;
+  }
 
   /**
    * オーディオスペクトルを正規化して取得する
@@ -210,50 +287,33 @@ export class AudioAnalyzer {
 
     const sampleRate = this.audioContext.sampleRate;
     const fftSize = this.fftSize;
-    const binFreq = sampleRate / fftSize; // 1ビンの周波数幅
+    const binCount = freqData.length;
 
+    // 表示範囲の設定
+    const minDisplayFreq = 20; // 表示上の最小周波数
+    const maxDisplayFreq = 20000; // 表示上の最大周波数
+
+    // 各バンドの周波数を均等に配置（リニアスケール）
     const result = Array(bands).fill(0);
-    const minChartDisplayFreq = 20; // 表示上の最小周波数
-    const maxChartDisplayFreq = 20000; // 表示上の最大周波数
 
-    const logMin = Math.log10(minChartDisplayFreq);
-    const logMax = Math.log10(maxChartDisplayFreq);
-    const logRange = logMax - logMin;
+    // 1サンプルあたりの周波数
+    const freqPerBin = sampleRate / 2 / binCount;
 
-    if (logRange <= 0) {
-      // minChartDisplayFreq >= maxChartDisplayFreq の場合
-      return result;
-    }
+    // 各バンドの周波数範囲を計算
+    for (let i = 0; i < bands; i++) {
+      // バンドの周波数を計算 (リニアスケール)
+      const freqForBand =
+        minDisplayFreq + (i / (bands - 1)) * (maxDisplayFreq - minDisplayFreq);
 
-    for (let k = 0; k < bands; k++) {
-      // 各出力バンドについてループ
-      // この対数スケールバンドの中心周波数を計算
-      // バンドkは logRatio が k/bands から (k+1)/bands の範囲をカバーすると考える
-      // その中心のlogRatioは (k + 0.5) / bands
-      const bandLogRatioCenter = (k + 0.5) / bands;
-      const centerFreqK = Math.pow(10, bandLogRatioCenter * logRange + logMin);
+      // その周波数に対応するFFTビンのインデックスを計算
+      const binIndex = Math.round(freqForBand / freqPerBin);
 
-      // この中心周波数に最も近いFFTビンのインデックスを探す
-      // FFTビンの周波数 fftBinFreq = j * binFreq なので、 j = centerFreqK / binFreq
-      let closestBinIndex = Math.round(centerFreqK / binFreq);
-
-      // FFTビンのインデックスを有効範囲 [0, freqData.length - 1] にクランプ
-      // DCオフセット(インデックス0)を避けるため、最小を1とする場合もあるが、
-      // AnalyserNodeのgetByteFrequencyDataは通常DCを含まないか、適切に処理されるため、
-      // ここでは0から許容する（ただし、実際の音声信号では低周波はカットされることが多い）
-      // より安全には、1から始める (Math.max(1, ...))
-      closestBinIndex = Math.max(
-        0,
-        Math.min(closestBinIndex, freqData.length - 1)
-      );
-
-      if (closestBinIndex < freqData.length) {
-        result[k] = freqData[closestBinIndex];
-      } else {
-        // このケースは上のクランプ処理により通常発生しない
-        result[k] = 0;
+      // インデックスが有効範囲内かチェック
+      if (binIndex >= 0 && binIndex < binCount) {
+        result[i] = freqData[binIndex];
       }
     }
+
     return result;
   }
 

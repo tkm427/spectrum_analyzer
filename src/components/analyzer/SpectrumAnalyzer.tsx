@@ -15,8 +15,7 @@ import {
   Legend,
   ChartOptions,
 } from "chart.js";
-import { Bar, Line } from "react-chartjs-2";
-
+import { Line } from "react-chartjs-2";
 import {
   Card,
   CardContent,
@@ -99,39 +98,52 @@ export function SpectrumAnalyzer({
     const status = analyzer.getStatus();
 
     if (status.isInitialized && status.isActive) {
-      const numRawDataBands = 128; // getNormalizedSpectrum から取得するバンド数
+      const numRawDataBands = 3000; // getNormalizedSpectrum から取得するバンド数
       const rawData = analyzer.getNormalizedSpectrum(numRawDataBands);
 
-      const newData = frequencyPoints.map(targetFreq => {
-        if (rawData.length === 0) return 0;
+      // 新しいアプローチ: 正確な周波数マッピング
+      const newData = new Array(frequencyPoints.length).fill(0);
 
-        const minLogFreq = 20; // 対数スケールの最小周波数
-        const maxLogFreq = 20000; // 対数スケールの最大周波数
+      // サンプリングレートを取得
+      const sampleRate = 44100; // 標準的なオーディオのサンプリングレート
+      const nyquist = sampleRate / 2;
 
-        if (targetFreq < minLogFreq || targetFreq > maxLogFreq) {
-          return 0; // ターゲット周波数が範囲外なら0
+      // 周波数ビンの幅を計算
+      const binWidth = nyquist / numRawDataBands;
+
+      for (let i = 0; i < frequencyPoints.length; i++) {
+        const targetFreq = frequencyPoints[i];
+
+        // より正確な周波数からインデックスへの変換
+        // 低周波数でもより精度の高い表示が可能
+        const index = Math.floor(targetFreq / binWidth);
+
+        // インデックスが有効範囲内かチェック
+        if (index >= 0 && index < numRawDataBands) {
+          newData[i] = rawData[index];
+
+          // 低周波数帯域でのデータ補間（より精密な表示のため）
+          if (targetFreq < 2000) {
+            // 前後のビンの値も使って平均化または最大値を取ることで表現を強化
+            const prevIndex = Math.max(0, index - 1);
+            const nextIndex = Math.min(numRawDataBands - 1, index + 1);
+
+            // 周辺の値の最大値を使用して低周波数の表現を向上
+            newData[i] = Math.max(
+              newData[i],
+              rawData[prevIndex] * 0.8,
+              rawData[nextIndex] * 0.8
+            );
+          }
+        } else {
+          // フォールバック: 最も近い有効なインデックスを探す
+          let closestIndex = Math.min(Math.max(0, index), numRawDataBands - 1);
+          newData[i] = rawData[closestIndex] || 0;
         }
-
-        // 対数スケールに基づいたより正確なインデックス計算
-        const minFreqLog = Math.log10(minLogFreq);
-        const maxFreqLog = Math.log10(maxLogFreq);
-        const targetFreqLog = Math.log10(targetFreq);
-        const normalizedLogPosition =
-          (targetFreqLog - minFreqLog) / (maxFreqLog - minFreqLog);
-
-        // 0-1の範囲に収める
-        const boundedPosition = Math.max(0, Math.min(normalizedLogPosition, 1));
-
-        // より正確なインデックス計算
-        let bandIndex = Math.floor(boundedPosition * (numRawDataBands - 1));
-
-        // デバッグ用（必要に応じて）
-        // console.log(`周波数: ${targetFreq}Hz, 位置: ${boundedPosition.toFixed(3)}, インデックス: ${bandIndex}`);
-
-        return rawData[bandIndex] !== undefined ? rawData[bandIndex] : 0;
-      });
+      }
 
       setSpectrumData(newData);
+
       // スペクトログラムの履歴を更新
       if (mode === "spectrogram") {
         setSpectrogramHistory(prev => {
@@ -145,12 +157,6 @@ export function SpectrumAnalyzer({
       if (detectedPitch > 0) {
         setPitch(Math.round(detectedPitch));
       }
-      console.log("Raw data length:", rawData.length);
-      console.log(
-        "Frequencies over 900Hz:",
-        frequencyPoints.filter(f => f > 900)
-      );
-      console.log("Sample data points:", newData.slice(24));
     }
 
     // 次のアニメーションフレームをリクエスト
@@ -176,24 +182,20 @@ export function SpectrumAnalyzer({
       {
         label: "周波数スペクトル",
         data: spectrumData,
-        backgroundColor: "transparent",
+        //backgroundColor: "transparent",
         borderColor:
           theme === "dark" ? "rgba(255, 255, 255, 0.8)" : "rgba(0, 0, 0, 0.7)",
         borderWidth: 2,
         pointRadius: 0,
-        tension: 0.3,
-        fill: {
-          target: "origin",
-          above:
-            theme === "dark"
-              ? "rgba(255, 255, 255, 0.1)"
-              : "rgba(0, 0, 0, 0.05)",
-        },
+        tension: 0.2,
+        fill: true,
+        backgroundColor:
+          theme === "dark" ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.05)",
       },
     ],
   };
 
-  // スペクトラム表示のオプション - 対数スケールを使用
+  // スペクトラム表示のオプション - リニアスケールに修正
   const spectrumOptions: ChartOptions<"line"> = {
     responsive: true,
     maintainAspectRatio: false,
@@ -226,9 +228,7 @@ export function SpectrumAnalyzer({
         },
       },
       x: {
-        type: "logarithmic",
-        min: 20,
-        max: maxFreq,
+        type: "category", // リニアスケールのためカテゴリーに変更
         title: {
           display: true,
           text: "周波数 (Hz)",
@@ -245,7 +245,7 @@ export function SpectrumAnalyzer({
         },
         ticks: {
           autoSkip: true,
-          maxRotation: 90,
+          maxRotation: 0,
           color:
             theme === "dark"
               ? "rgba(255, 255, 255, 0.6)"
@@ -253,19 +253,12 @@ export function SpectrumAnalyzer({
           font: {
             size: 9,
           },
-          callback: function (value) {
-            const numericValue = Number(value);
-            if (numericValue >= 1000) {
-              return `${numericValue / 1000}k`;
-            }
-            return numericValue;
-          },
         },
       },
     },
     plugins: {
       legend: {
-        display: false,
+        display: false, // 凡例を非表示
       },
       tooltip: {
         backgroundColor:
@@ -427,7 +420,7 @@ export function SpectrumAnalyzer({
         </div>
         <div className="text-xs text-muted-foreground text-center mt-2">
           {mode === "spectrum"
-            ? "※ グラフは20Hz～20kHzの対数スケールで表示しています"
+            ? "※ グラフは20Hz～20kHzの周波数範囲を表示しています"
             : `※ グラフは${maxFreq}Hzまでの周波数データを時系列で表示しています`}
         </div>
       </CardContent>
