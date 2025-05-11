@@ -14,8 +14,9 @@ import {
   Tooltip,
   Legend,
   ChartOptions,
+  ScatterController,
 } from "chart.js";
-import { Line } from "react-chartjs-2";
+import { Line, Scatter } from "react-chartjs-2";
 import {
   Card,
   CardContent,
@@ -35,7 +36,8 @@ ChartJS.register(
   PointElement,
   Title,
   Tooltip,
-  Legend
+  Legend,
+  ScatterController
 );
 
 // 表示モードの定義
@@ -45,6 +47,41 @@ interface SpectrumAnalyzerProps {
   mode?: VisualizationMode;
   bands?: number;
 }
+
+// 強度に基づいて色を決定するヘルパー関数
+const getColorForIntensity = (intensity: number, theme: string | undefined) => {
+  const alpha = Math.max(0.1, Math.min(1, intensity / 255)); // 透明度を調整
+
+  if (theme === "dark") {
+    // ダークテーマ用のカラースケール（例: 青 -> 黄 -> 赤）
+    if (intensity < 85) {
+      return `rgba(${Math.round(intensity * 1.5)}, ${Math.round(
+        intensity * 2
+      )}, 255, ${alpha})`; // 青系
+    } else if (intensity < 170) {
+      return `rgba(255, ${Math.round(
+        255 - (intensity - 85) * 1.5
+      )}, 0, ${alpha})`; // 黄色系
+    } else {
+      return `rgba(255, ${Math.round(
+        255 - (intensity - 170) * 3
+      )}, 0, ${alpha})`; // 赤系
+    }
+  } else {
+    // ライトテーマ用のカラースケール（例: 水色 -> 紫 -> オレンジ）
+    if (intensity < 85) {
+      return `rgba(100, 180, ${Math.round(200 + intensity * 0.5)}, ${alpha})`; // 水色系
+    } else if (intensity < 170) {
+      return `rgba(${Math.round(
+        150 + (intensity - 85) * 1.2
+      )}, 100, ${Math.round(200 - (intensity - 85) * 0.5)}, ${alpha})`; // 紫系
+    } else {
+      return `rgba(255, ${Math.round(
+        165 - (intensity - 170) * 1.5
+      )}, 50, ${alpha})`; // オレンジ系
+    }
+  }
+};
 
 /**
  * 周波数スペクトルアナライザーコンポーネント
@@ -57,12 +94,15 @@ export function SpectrumAnalyzer({ mode = "spectrum" }: SpectrumAnalyzerProps) {
   const requestRef = useRef<number | null>(null);
 
   // 固定の周波数ポイント - より詳細な周波数をカバーするように更新
-  const frequencyPoints = [
-    20, 30, 40, 50, 60, 75, 90, 110, 130, 160, 190, 220, 260, 300, 350, 400,
-    450, 500, 550, 600, 650, 700, 800, 900, 1000, 1200, 1400, 1600, 1800, 2000,
-    2500, 3000, 3500, 4000, 5000, 6000, 7000, 8000, 9000, 10000, 12000, 14000,
-    16000, 20000,
-  ];
+  const frequencyPoints = React.useMemo(
+    () => [
+      20, 30, 40, 50, 60, 75, 90, 110, 130, 160, 190, 220, 260, 300, 350, 400,
+      450, 500, 550, 600, 650, 700, 800, 900, 1000, 1200, 1400, 1600, 1800,
+      2000, 2500, 3000, 3500, 4000, 5000, 6000, 7000, 8000, 9000, 10000, 12000,
+      14000, 16000, 20000,
+    ],
+    []
+  );
 
   // 周波数ラベル
   const frequencyLabels = frequencyPoints.map(freq => {
@@ -83,11 +123,16 @@ export function SpectrumAnalyzer({ mode = "spectrum" }: SpectrumAnalyzerProps) {
 
   // スペクトログラムの履歴データ
   const [spectrogramHistory, setSpectrogramHistory] = useState<number[][]>(
-    Array(30).fill(Array(frequencyPoints.length).fill(0))
+    Array(50).fill(Array(frequencyPoints.length).fill(0)) // 時間軸の解像度を少し上げる
   );
 
   // テーマの状態を取得
   const { theme } = useTheme();
+
+  // スペクトログラム散布図用のデータ
+  const [spectrogramScatterData, setSpectrogramScatterData] = useState<
+    { x: number; y: number; value: number }[]
+  >([]);
 
   // グラフ描画のアニメーション関数
   const animate = useCallback(() => {
@@ -161,7 +206,7 @@ export function SpectrumAnalyzer({ mode = "spectrum" }: SpectrumAnalyzerProps) {
 
     // 次のアニメーションフレームをリクエスト
     requestRef.current = requestAnimationFrame(animate);
-  }, [mode, frequencyPoints, setSpectrumData, setSpectrogramHistory, setPitch]); // animate関数の依存関係
+  }, [mode, frequencyPoints, setSpectrumData, setSpectrogramHistory, setPitch]);
 
   // コンポーネントがマウントされた時にアニメーションを開始
   useEffect(() => {
@@ -174,6 +219,26 @@ export function SpectrumAnalyzer({ mode = "spectrum" }: SpectrumAnalyzerProps) {
       }
     };
   }, [animate]); // animateが変更された時にエフェクトを再実行
+
+  // spectrogramHistoryが更新されたら、散布図用のデータに変換
+  useEffect(() => {
+    if (mode === "spectrogram") {
+      const scatterData: { x: number; y: number; value: number }[] = [];
+      spectrogramHistory.forEach((historySlice, timeIndex) => {
+        historySlice.forEach((intensity, freqIndex) => {
+          if (intensity > 20) {
+            // 強度が低いデータは描画しない (閾値調整可能)
+            scatterData.push({
+              x: timeIndex,
+              y: frequencyPoints[freqIndex],
+              value: intensity,
+            });
+          }
+        });
+      });
+      setSpectrogramScatterData(scatterData);
+    }
+  }, [spectrogramHistory, mode, frequencyPoints]);
 
   // スペクトラム表示用のデータ - 線グラフに変更
   const spectrumChartData = {
@@ -290,35 +355,23 @@ export function SpectrumAnalyzer({ mode = "spectrum" }: SpectrumAnalyzerProps) {
     },
   };
 
-  // スペクトログラム表示用のデータ
-  const spectrogramData = {
-    labels: Array(spectrogramHistory.length).fill(""),
-    datasets: frequencyLabels.map((label, i) => {
-      // モノトーン用のグラデーションを作成
-      const intensity = 0.2 + (0.8 * i) / frequencyPoints.length;
-      const color =
-        theme === "dark"
-          ? `rgba(255, 255, 255, ${intensity})`
-          : `rgba(0, 0, 0, ${intensity})`;
-      const bgColor =
-        theme === "dark"
-          ? `rgba(255, 255, 255, ${intensity * 0.5})`
-          : `rgba(0, 0, 0, ${intensity * 0.5})`;
-      return {
-        label,
-        data: spectrogramHistory.map(history => history[i]),
-        borderColor: color,
-        backgroundColor: bgColor,
-        fill: false,
-        pointRadius: 0,
-        tension: 0.2,
-        borderWidth: 1,
-      };
-    }),
+  // スペクトログラム表示用のデータ (Scatter用)
+  const spectrogramScatterChartData = {
+    datasets: [
+      {
+        label: "スペクトログラム",
+        data: spectrogramScatterData,
+        pointRadius: 5, // 点のサイズ
+        pointStyle: "rect" as const, // 点のスタイルを四角形に
+        backgroundColor: spectrogramScatterData.map(p =>
+          getColorForIntensity(p.value, theme)
+        ),
+      },
+    ],
   };
 
-  // スペクトログラム表示のオプション
-  const spectrogramOptions: ChartOptions<"line"> = {
+  // スペクトログラム表示のオプション (Scatter用)
+  const spectrogramScatterOptions: ChartOptions<"scatter"> = {
     responsive: true,
     maintainAspectRatio: false,
     animation: {
@@ -326,15 +379,29 @@ export function SpectrumAnalyzer({ mode = "spectrum" }: SpectrumAnalyzerProps) {
     },
     scales: {
       y: {
-        beginAtZero: true,
-        max: 255,
+        type: "logarithmic",
+        min: 20,
+        max: maxFreq, // maxFreq (20000) を使用
         title: {
           display: true,
-          text: "振幅",
+          text: "周波数 (Hz)",
           color:
             theme === "dark"
               ? "rgba(255, 255, 255, 0.7)"
               : "rgba(0, 0, 0, 0.7)",
+        },
+        ticks: {
+          color:
+            theme === "dark"
+              ? "rgba(255, 255, 255, 0.6)"
+              : "rgba(0, 0, 0, 0.6)",
+          callback: function (value) {
+            const freq = Number(value);
+            if (freq >= 1000) {
+              return `${freq / 1000}kHz`;
+            }
+            return `${freq}Hz`;
+          },
         },
         grid: {
           color:
@@ -342,14 +409,9 @@ export function SpectrumAnalyzer({ mode = "spectrum" }: SpectrumAnalyzerProps) {
               ? "rgba(255, 255, 255, 0.1)"
               : "rgba(0, 0, 0, 0.05)",
         },
-        ticks: {
-          color:
-            theme === "dark"
-              ? "rgba(255, 255, 255, 0.6)"
-              : "rgba(0, 0, 0, 0.6)",
-        },
       },
       x: {
+        type: "linear",
         title: {
           display: true,
           text: "時間",
@@ -362,7 +424,10 @@ export function SpectrumAnalyzer({ mode = "spectrum" }: SpectrumAnalyzerProps) {
           display: false,
         },
         ticks: {
-          display: false,
+          color:
+            theme === "dark"
+              ? "rgba(255, 255, 255, 0.6)"
+              : "rgba(0, 0, 0, 0.6)",
         },
       },
     },
@@ -371,7 +436,41 @@ export function SpectrumAnalyzer({ mode = "spectrum" }: SpectrumAnalyzerProps) {
         display: false,
       },
       tooltip: {
-        enabled: false,
+        enabled: true,
+        backgroundColor:
+          theme === "dark" ? "rgba(0, 0, 0, 0.8)" : "rgba(0, 0, 0, 0.7)",
+        titleColor:
+          theme === "dark"
+            ? "rgba(255, 255, 255, 0.9)"
+            : "rgba(255, 255, 255, 1)",
+        bodyColor:
+          theme === "dark"
+            ? "rgba(255, 255, 255, 0.9)"
+            : "rgba(255, 255, 255, 1)",
+        callbacks: {
+          title: function (tooltipItems) {
+            const dataPoint = tooltipItems[0].raw as {
+              x: number;
+              y: number;
+              value: number;
+            };
+            return `時間: ${dataPoint.x.toFixed(0)}`;
+          },
+          label: function (tooltipItem) {
+            const dataPoint = tooltipItem.raw as {
+              x: number;
+              y: number;
+              value: number;
+            };
+            const freq = dataPoint.y;
+            const intensity = dataPoint.value;
+            const freqLabel =
+              freq >= 1000
+                ? `${(freq / 1000).toFixed(1)}kHz`
+                : `${freq.toFixed(0)}Hz`;
+            return `周波数: ${freqLabel}, 強度: ${intensity.toFixed(0)}`;
+          },
+        },
       },
     },
   };
@@ -415,7 +514,10 @@ export function SpectrumAnalyzer({ mode = "spectrum" }: SpectrumAnalyzerProps) {
           {mode === "spectrum" ? (
             <Line data={spectrumChartData} options={spectrumOptions} />
           ) : (
-            <Line data={spectrogramData} options={spectrogramOptions} />
+            <Scatter
+              data={spectrogramScatterChartData}
+              options={spectrogramScatterOptions}
+            />
           )}
         </div>
         <div className="text-xs text-muted-foreground text-center mt-2">
