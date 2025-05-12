@@ -6,6 +6,8 @@
 
 このアプリケーションは、Web Audio APIを活用して、マイク入力またはアップロードされた音声ファイルから周波数データを取得し、視覚的に表示します。主な機能として、スペクトラム表示とスペクトログラム表示の切り替え、ダークモード対応などがあります。
 
+**デプロイ先:** [https://spectrum-analyzer-six.vercel.app/](https://spectrum-analyzer-six.vercel.app/) にアクセスしてアプリケーションを試すことができます。
+
 ## 主な機能
 
 *   **リアルタイム音声分析**: マイク入力からリアルタイムで音声データを取得し、周波数スペクトルを表示します。
@@ -22,8 +24,8 @@
 
 1.  リポジトリをクローンします:
     ```bash
-    git clone https://github.com/<YOUR_USERNAME>/spectrue.git
-    cd spectrue
+    git clone https://github.com/tkm427/spectrum_analyzer.git
+    cd spectrum_analyzer
     ```
 2.  依存関係をインストールします:
     ```bash
