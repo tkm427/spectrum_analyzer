@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import {
@@ -43,14 +43,8 @@ export default function Home() {
     useState<VisualizationMode>("spectrum");
   const [isDarkMode, setIsDarkMode] = useState(false);
 
-  // スペクトルデータ
-  const [, setSpectrumData] = useState<number[]>(Array(64).fill(0));
-
   // オーディオファイルデータが準備完了かどうか
   const [, setIsFileDataReady] = useState(false);
-
-  // アニメーションフレームのID
-  const requestRef = useRef<number | null>(null);
 
   // テーマの初期状態をセット
   useEffect(() => {
@@ -89,25 +83,10 @@ export default function Home() {
     if (isAnalyzing) {
       analyzer.stop();
       setIsAnalyzing(false);
-
-      if (requestRef.current) {
-        cancelAnimationFrame(requestRef.current);
-        requestRef.current = null;
-      }
     } else {
       const success = analyzer.start();
       if (success) {
         setIsAnalyzing(true);
-
-        // アニメーションの開始
-        if (!requestRef.current) {
-          const animate = () => {
-            const newData = analyzer.getNormalizedSpectrum(64);
-            setSpectrumData(newData);
-            requestRef.current = requestAnimationFrame(animate);
-          };
-          requestRef.current = requestAnimationFrame(animate);
-        }
       } else {
         setError(
           "音声分析の開始に失敗しました。マイクへのアクセスを確認してください。"
@@ -121,12 +100,14 @@ export default function Home() {
     // マイクからファイルに切り替えるとき
     if (analysisSource === "file") {
       const analyzer = getAudioAnalyzer();
-      analyzer.stop();
-      setIsAnalyzing(false);
-
-      if (requestRef.current) {
-        cancelAnimationFrame(requestRef.current);
-        requestRef.current = null;
+      analyzer.stop(); // マイクの分析を停止
+      setIsAnalyzing(false); // マイクの分析状態をリセット
+    }
+    // ファイルからマイクに切り替えるとき、AudioFileProcessorの再生を止めるなど必要に応じて処理を追加
+    if (analysisSource === "microphone") {
+      const fileProcessor = getAudioFileProcessor();
+      if (fileProcessor.getPlayingStatus()) {
+        fileProcessor.stop();
       }
     }
   }, [analysisSource]);
@@ -134,33 +115,15 @@ export default function Home() {
   // ファイルデータ準備完了時の処理
   const handleFileDataReady = () => {
     setIsFileDataReady(true);
-
-    // ファイルからスペクトルデータを取得するアニメーションを開始
-    if (requestRef.current) {
-      cancelAnimationFrame(requestRef.current);
-    }
-
-    const fileProcessor = getAudioFileProcessor();
-    const animate = () => {
-      if (fileProcessor.getPlayingStatus()) {
-        const newData = fileProcessor.getNormalizedSpectrum(64);
-        setSpectrumData(newData);
-      }
-      requestRef.current = requestAnimationFrame(animate);
-    };
-
-    requestRef.current = requestAnimationFrame(animate);
   };
 
   // クリーンアップ
   useEffect(() => {
     return () => {
-      if (requestRef.current) {
-        cancelAnimationFrame(requestRef.current);
-      }
-
       const analyzer = getAudioAnalyzer();
       analyzer.dispose();
+      const fileProcessor = getAudioFileProcessor();
+      fileProcessor.dispose(); // AudioFileProcessorもdisposeする
     };
   }, []);
 
