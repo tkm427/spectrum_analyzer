@@ -92,6 +92,10 @@ export function SpectrumAnalyzer({ mode = "spectrum" }: SpectrumAnalyzerProps) {
 
   // アニメーションフレームのIDを保持
   const requestRef = useRef<number | null>(null);
+  // 最後にピッチ検出を実行した時刻を保持
+  const lastPitchDetectionTimeRef = useRef(0);
+  // ピッチ検出の実行間隔 (ミリ秒)
+  const pitchDetectionInterval = 100;
 
   // 固定の周波数ポイント - より詳細な周波数をカバーするように更新
   const frequencyPoints = React.useMemo(
@@ -140,7 +144,7 @@ export function SpectrumAnalyzer({ mode = "spectrum" }: SpectrumAnalyzerProps) {
     const status = analyzer.getStatus();
 
     if (status.isInitialized && status.isActive) {
-      const numRawDataBands = 20000; // getNormalizedSpectrum から取得するバンド数
+      const numRawDataBands = 10000; // getNormalizedSpectrum から取得するバンド数
       const rawData = analyzer.getNormalizedSpectrum(numRawDataBands);
 
       // 新しいアプローチ: 正確な周波数マッピング
@@ -197,16 +201,30 @@ export function SpectrumAnalyzer({ mode = "spectrum" }: SpectrumAnalyzerProps) {
         });
       }
 
-      // ピッチ検出
-      const detectedPitch = analyzer.detectPitch();
-      if (detectedPitch > 0) {
-        setPitch(Math.round(detectedPitch));
+      // ピッチ検出の頻度を調整
+      const currentTime = performance.now();
+      if (
+        currentTime - lastPitchDetectionTimeRef.current >
+        pitchDetectionInterval
+      ) {
+        const detectedPitch = analyzer.detectPitch();
+        if (detectedPitch > 0) {
+          setPitch(Math.round(detectedPitch));
+        }
+        lastPitchDetectionTimeRef.current = currentTime;
       }
     }
 
     // 次のアニメーションフレームをリクエスト
     requestRef.current = requestAnimationFrame(animate);
-  }, [mode, frequencyPoints, setSpectrumData, setSpectrogramHistory, setPitch]);
+  }, [
+    mode,
+    frequencyPoints,
+    setSpectrumData,
+    setSpectrogramHistory,
+    setPitch,
+    pitchDetectionInterval,
+  ]);
 
   // コンポーネントがマウントされた時にアニメーションを開始
   useEffect(() => {
