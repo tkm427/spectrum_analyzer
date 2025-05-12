@@ -13,7 +13,7 @@ export class AudioAnalyzer {
   private isActive = false;
 
   // FFTサイズ（2の累乗である必要がある）
-  private fftSize = 4096;
+  private fftSize = 8192; // 8192はデフォルト値
 
   // 周波数データの配列
   private frequencyData: Uint8Array | null = null;
@@ -33,7 +33,10 @@ export class AudioAnalyzer {
       });
 
       // AudioContextの作成
-      const AudioContextClass = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      const AudioContextClass =
+        window.AudioContext ||
+        (window as Window & { webkitAudioContext?: typeof AudioContext })
+          .webkitAudioContext;
       if (!AudioContextClass) {
         console.error("AudioContext is not supported in this browser.");
         return false; // 初期化失敗
